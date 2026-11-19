@@ -1,0 +1,42 @@
+# `world` CLI Reference
+
+## Exit codes
+
+- `0`: Success
+- `1`: General, network, or server error
+- `2`: Usage or invalid argument error
+- `3`: Unauthenticated (missing or invalid API key)
+- `4`: Resource not found
+
+## Commands
+
+### Authentication & configuration
+
+- `world auth login` — Open browser to `console.worldmachine.dev/cli-auth` and receive a dedicated API key over a localhost callback.
+- `world auth login --no-browser` — Print the authorization URL instead of launching a browser.
+- `world auth login --api-key <key> [--endpoint <url>]` — Save an existing API key directly.
+- `world auth status [--offline] [--json]` — Inspect config, check `/healthz`, and probe key validity.
+- `world auth logout` — Clear stored credentials from the active profile.
+- `world config list [--json]` — Print resolved configuration.
+- `world config get <key>` — Read `profile`, `endpoint`, `console-url`, `api-key` (masked), `timezone`, `source`, or `output`.
+- `world config set <key> <value>` — Update a profile setting or switch `profile`.
+
+### Memories & entities
+
+- `world remember "<text>" [--source <label>] [--timezone <iana>] [--occurred-at <time>] [--meta k=v] [--idempotency-key <key>] [--json]`
+  - Pass `-` or pipe stdin to write multi-line text.
+  - Response JSON: `{"eventId":"...","deduplicated":false}`.
+- `world recall "<query>" [--as-of <time>] [--max-entities <n>] [--max-events <n>] [--timezone <iana>] [--json]`
+  - `--as-of` accepts RFC3339, `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, or Unix ms/s.
+  - Response JSON: `{"entities":[...],"memories":[...]}`.
+- `world entity get <entity_id> [--as-of <time>] [--timezone <iana>] [--json]`
+  - Response JSON: `{"entity":{...}}`.
+
+## Environment variables
+
+- `WORLD_API_KEY` (or `WM_API_KEY`) — API key override
+- `WORLD_ENDPOINT` — API endpoint override (default `https://api.worldmachine.dev`)
+- `WORLD_CONSOLE_URL` — Console URL override (default `https://console.worldmachine.dev`)
+- `WORLD_PROFILE` — Active profile override
+- `WORLD_TIMEZONE` — Default IANA timezone override
+- `WORLD_SOURCE` — Default source label override
