@@ -69,7 +69,7 @@ func TestRecallAndGetEntityAndVerifyAuth(t *testing.T) {
 			if q.Get("query") != "Atlas" || q.Get("maxEntities") != "5" || q.Get("asOfValidTimeMs") != "1731920000000" {
 				t.Fatalf("unexpected recall query: %v", q)
 			}
-			_, _ = w.Write([]byte(`{"entities":[{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project","components":{"status":{"componentType":"Status","schemaVersion":"1","payload":{"state":"active"},"validFromMs":"1731920000000","validToMs":"0","epistemicStatus":"stated_claim"}}}],"memories":[{"eventId":"evt_1","occurredAtMs":"1731920000000","eventType":"note","summary":"Project Atlas"}]}`))
+			_, _ = w.Write([]byte(`{"entities":[{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project","components":{"status":{"componentType":"Status","schemaVersion":"1","payload":{"state":"active"},"validFromMs":"1731920000000","validToMs":"0","epistemicStatus":"stated_claim"}}}],"memories":[{"eventId":"evt_1","occurredAtMs":"1731920000000","summary":"Project Atlas"}]}`))
 		case "/v1/entities/ent_1":
 			if r.URL.Query().Get("asOfValidTimeMs") != "1731920000000" {
 				t.Fatalf("unexpected entity query: %v", r.URL.RawQuery)

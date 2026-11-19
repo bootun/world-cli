@@ -115,7 +115,6 @@ type RecallRequest struct {
 type MemoryView struct {
 	EventID           string   `json:"eventId"`
 	OccurredAtMs      Int64    `json:"occurredAtMs"`
-	EventType         string   `json:"eventType"`
 	Summary           string   `json:"summary"`
 	AffectedEntityIds []string `json:"affectedEntityIds,omitempty"`
 }

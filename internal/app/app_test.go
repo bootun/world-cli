@@ -47,7 +47,7 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 			if r.URL.Query().Get("query") != "Atlas" || r.URL.Query().Get("asOfValidTimeMs") == "" {
 				t.Fatalf("unexpected recall query: %s", r.URL.RawQuery)
 			}
-			_, _ = w.Write([]byte(`{"entities":[{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}],"memories":[{"eventId":"evt_001","occurredAtMs":"1731920000000","eventType":"note","summary":"Project Atlas"}]}`))
+			_, _ = w.Write([]byte(`{"entities":[{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}],"memories":[{"eventId":"evt_001","occurredAtMs":"1731920000000","summary":"Project Atlas"}]}`))
 		case "/v1/entities/ent_1":
 			_, _ = w.Write([]byte(`{"entity":{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}}`))
 		default:
