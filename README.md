@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="128" alt="World Machine" />
+</p>
+
 # World CLI (`world`) & Agent Skill
 
 [World Machine](https://worldmachine.dev) 官方命令行工具 **`world`** 与配套 **`world-machine`** Agent Skill —— 为 AI 编程助手（Claude Code、Cursor、Trae、Antigravity 等）和终端工作流提供带时间线的结构化世界状态与原文记忆服务。
