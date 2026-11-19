@@ -10,7 +10,8 @@ Use `world` as your external bitemporal memory store across sessions instead of 
 ## Core operating principles
 
 1. **Act without asking permission**: When a durable fact or decision surfaces during conversation, run `world remember` quietly alongside your main task. Do **not** interrupt the workflow to ask "Should I save this to World Machine?".
-2. **Call directly, handle auth on exit code `3`**: Do **not** run `world auth status` before every read or write. Execute `world remember` or `world recall` directly; only if a command fails with exit code `3` (unauthenticated), run `world auth status --json` and ask the user to sign in via `world auth login` (or `world auth login --no-browser` in SSH/headless sessions).
+2. **Mandatory pre-response check on non-trivial turns**: Before sending your final answer after completing any non-trivial work (shipping a feature or deployment, settling an architecture/design choice, finding a tricky bug's root cause, or receiving a user preference/correction), pause and ask: *"If a fresh session starts tomorrow, what settled fact, decision, state change, or root cause here would save re-investigating or re-asking?"* If anything qualifies under the 5 high-value signals below, run `world remember` quietly before replying—split independent conclusions into separate calls instead of collapsing everything into one vague sentence.
+3. **Call directly, handle auth on exit code `3`**: Do **not** run `world auth status` before every read or write. Execute `world remember` or `world recall` directly; only if a command fails with exit code `3` (unauthenticated), run `world auth status --json` and ask the user to sign in via `world auth login` (or `world auth login --no-browser` in SSH/headless sessions).
 
 ## Core workflows
 
