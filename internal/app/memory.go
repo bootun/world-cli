@@ -108,7 +108,7 @@ func (a *App) runRemember(ctx context.Context, args []string, defaults commonFla
 		_ = writeJSON(a.stdout, out)
 		return exitOK
 	}
-	fmt.Fprintf(a.stdout, "Recorded memory %s", out.EventID)
+	fmt.Fprint(a.stdout, "Recorded memory")
 	if out.Deduplicated {
 		fmt.Fprint(a.stdout, " (deduplicated)")
 	}

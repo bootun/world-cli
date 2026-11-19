@@ -94,13 +94,16 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 	if seenRemember["timezone"] != "Asia/Shanghai" || seenRemember["source"] != "cli-test" {
 		t.Fatalf("unexpected remember payload: %#v", seenRemember)
 	}
+	if strings.Contains(out.String(), "eventId") || !strings.Contains(out.String(), `"deduplicated": false`) {
+		t.Fatalf("unexpected remember output: %s", out.String())
+	}
 
 	out.Reset()
 	code = a.Run(context.Background(), []string{"recall", "Atlas", "--as-of", "2026-11-18", "--timezone", "Asia/Shanghai", "--json"})
 	if code != exitOK {
 		t.Fatalf("recall failed (%d): %s", code, errBuf.String())
 	}
-	if !strings.Contains(out.String(), `"canonicalName": "Atlas"`) {
+	if !strings.Contains(out.String(), `"canonicalName": "Atlas"`) || strings.Contains(out.String(), "eventId") {
 		t.Fatalf("unexpected recall output: %s", out.String())
 	}
 
@@ -142,8 +145,8 @@ func TestRememberFromStdinAndConfigSetGet(t *testing.T) {
 	if seenText != "Piped memory content" {
 		t.Fatalf("seenText = %q, want Piped memory content", seenText)
 	}
-	if !strings.Contains(out.String(), "evt_stdin") {
-		t.Fatalf("expected evt_stdin in stdout, got %s", out.String())
+	if strings.TrimSpace(out.String()) != "Recorded memory" {
+		t.Fatalf("expected 'Recorded memory' in stdout, got %q", out.String())
 	}
 }
 

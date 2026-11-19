@@ -79,8 +79,7 @@ type WriteMemoryRequest struct {
 }
 
 type WriteMemoryResponse struct {
-	EventID      string `json:"eventId"`
-	Deduplicated bool   `json:"deduplicated"`
+	Deduplicated bool `json:"deduplicated"`
 }
 
 type ComponentView struct {
@@ -113,7 +112,6 @@ type RecallRequest struct {
 }
 
 type MemoryView struct {
-	EventID           string   `json:"eventId"`
 	OccurredAtMs      Int64    `json:"occurredAtMs"`
 	Summary           string   `json:"summary"`
 	AffectedEntityIds []string `json:"affectedEntityIds,omitempty"`

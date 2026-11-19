@@ -46,6 +46,8 @@ npx -y skills add bootun/world-cli --skill world-machine -y
 cp -r skills/world-machine ~/.agents/skills/world-machine
 ```
 
+安装后，AI 编程助手无需等你显式下令“记住”，即可在日常协作中**主动捕捉**用户长期偏好、架构拍板、职责/拓扑与事实更正并顺手调用 `world remember`，同时**自动过滤**一次性指令、临时报错堆栈与敏感密钥等噪音，并在缺乏背景或需要历史状态时**主动调用 `world recall`**。
+
 ---
 
 ## 登录与授权
@@ -98,7 +100,7 @@ cat meeting-note.txt | world remember - --source meeting --json
 | `--occurred-at <time>` | 实际发生时间（支持 `YYYY-MM-DD`、`YYYY-MM-DD HH:MM:SS`、RFC3339 或 Unix 时间戳） |
 | `--meta k=v` | 附加键值元信息留档（可多次传入） |
 | `--idempotency-key <key>` | 显式指定幂等键；省略时每次命令调用自动生成并在网络重试时复用 |
-| `--json` | 输出 JSON：`{"eventId":"...","deduplicated":false}` |
+| `--json` | 输出 JSON：`{"deduplicated":false}` |
 
 ### 2. 自然语言召回（`world recall`）
 

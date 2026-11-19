@@ -49,7 +49,7 @@ func TestWriteMemoryRetriesWithSameIdempotencyKeyAndStringInt64(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WriteMemory: %v", err)
 	}
-	if res.EventID != "evt_123" || res.Deduplicated {
+	if res.Deduplicated {
 		t.Fatalf("unexpected response: %+v", res)
 	}
 	if calls.Load() != 2 || seenKeys[0] != "idem-abc" || seenKeys[1] != "idem-abc" {

@@ -5,7 +5,7 @@
 - `0`: Success
 - `1`: General, network, or server error
 - `2`: Usage or invalid argument error
-- `3`: Unauthenticated (missing or invalid API key)
+- `3`: Unauthenticated (missing or invalid API key; prompt user to run `world auth login`)
 - `4`: Resource not found
 
 ## Commands
@@ -25,7 +25,8 @@
 
 - `world remember "<text>" [--source <label>] [--timezone <iana>] [--occurred-at <time>] [--meta k=v] [--idempotency-key <key>] [--json]`
   - Pass `-` or pipe stdin to write multi-line text.
-  - Response JSON: `{"eventId":"...","deduplicated":false}`.
+  - `--meta k=v` is stored on the raw memory archive only and is not indexed or returned by `recall`.
+  - Response JSON: `{"deduplicated":false}`.
 - `world recall "<query>" [--as-of <time>] [--max-entities <n>] [--max-events <n>] [--timezone <iana>] [--json]`
   - `--as-of` accepts RFC3339, `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, or Unix ms/s.
   - Response JSON: `{"entities":[...],"memories":[...]}`.
