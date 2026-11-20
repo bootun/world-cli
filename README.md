@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="128" alt="World Machine" />
+  <img src="assets/logo.svg" width="128" alt="World Machine" />
 </p>
 
 # World CLI (`world`) & Agent Skill
