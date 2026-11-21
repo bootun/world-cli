@@ -24,14 +24,19 @@ func TestHookCLIEndToEnd(t *testing.T) {
 	a, out, errBuf, store := newTestApp(t, "")
 	a.homeDir = func() (string, error) { return home, nil }
 	a.workDir = func() (string, error) { return work, nil }
+	a.execPath = func() (string, error) { return "/Users/dev/.gvm/bin/world", nil }
 
-	// Install auto-detected targets.
+	// Install auto-detected targets using resolved absolute executable path.
 	code := a.Run(context.Background(), []string{"hook", "install", "--json"})
 	if code != exitOK {
 		t.Fatalf("hook install failed (%d): %s", code, errBuf.String())
 	}
 	if !strings.Contains(out.String(), `"target": "antigravity"`) || !strings.Contains(out.String(), `"target": "claude"`) {
 		t.Fatalf("expected antigravity and claude installed, got: %s", out.String())
+	}
+	agyHooksRaw, err := os.ReadFile(filepath.Join(home, ".gemini", "config", "hooks.json"))
+	if err != nil || !strings.Contains(string(agyHooksRaw), "/Users/dev/.gvm/bin/world hook session-start") {
+		t.Fatalf("expected absolute world binary path in hooks.json, got %q (err=%v)", string(agyHooksRaw), err)
 	}
 
 	// Status shows installed.

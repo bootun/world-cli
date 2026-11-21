@@ -165,6 +165,27 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+func ResolveCommandBin(explicit string, executable func() (string, error), lookPath func(string) (string, error)) string {
+	if v := strings.TrimSpace(explicit); v != "" {
+		return v
+	}
+	if executable != nil {
+		if exe, err := executable(); err == nil {
+			exe = filepath.Clean(strings.TrimSpace(exe))
+			base := strings.ToLower(filepath.Base(exe))
+			if exe != "" && (base == "world" || base == "world.exe") {
+				return exe
+			}
+		}
+	}
+	if lookPath != nil {
+		if found, err := lookPath(DefaultCommandBin); err == nil && strings.TrimSpace(found) != "" {
+			return filepath.Clean(found)
+		}
+	}
+	return DefaultCommandBin
+}
+
 func commandForEvent(bin, event string) string {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {
@@ -177,8 +198,15 @@ func commandForEvent(bin, event string) string {
 }
 
 func isWorldHookCommand(cmd, event string) bool {
-	c := strings.TrimSpace(cmd)
-	return strings.Contains(c, "hook "+event) && (strings.Contains(c, "world ") || strings.Contains(c, "world\"") || strings.Contains(c, "/world"))
+	c := strings.ToLower(strings.TrimSpace(cmd))
+	if !strings.Contains(c, "hook "+strings.ToLower(event)) {
+		return false
+	}
+	return strings.Contains(c, "world ") ||
+		strings.Contains(c, "world\"") ||
+		strings.Contains(c, "/world") ||
+		strings.Contains(c, `\world`) ||
+		strings.Contains(c, "world.exe")
 }
 
 func Install(opts ManageOptions) ([]TargetStatus, error) {

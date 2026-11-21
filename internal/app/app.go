@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/bootun/world-cli/internal/client"
@@ -33,6 +34,8 @@ type App struct {
 	onAuthReady func(authURL, callbackURL, state string)
 	homeDir     func() (string, error)
 	workDir     func() (string, error)
+	execPath    func() (string, error)
+	lookPath    func(string) (string, error)
 }
 
 func New(store *config.Store, stdin io.Reader, stdout, stderr io.Writer) *App {
@@ -47,6 +50,8 @@ func New(store *config.Store, stdin io.Reader, stdout, stderr io.Writer) *App {
 		openBrowser: defaultBrowserOpener,
 		homeDir:     os.UserHomeDir,
 		workDir:     os.Getwd,
+		execPath:    os.Executable,
+		lookPath:    exec.LookPath,
 	}
 }
 

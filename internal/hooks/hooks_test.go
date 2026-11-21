@@ -242,3 +242,30 @@ func TestHandleStopGuardsAndTriggering(t *testing.T) {
 		t.Fatalf("expected decision=block for claude/codex, got %s", string(out))
 	}
 }
+
+func TestResolveCommandBinAndQuotedPaths(t *testing.T) {
+	// Explicit flag wins.
+	if got := ResolveCommandBin("wm", func() (string, error) { return "/usr/local/bin/world", nil }, nil); got != "wm" {
+		t.Fatalf("expected explicit command, got %q", got)
+	}
+	// Real world executable path is preserved.
+	if got := ResolveCommandBin("", func() (string, error) { return "/Users/dev/.gvm/bin/world", nil }, nil); got != "/Users/dev/.gvm/bin/world" {
+		t.Fatalf("expected absolute executable path, got %q", got)
+	}
+	// Non-world test binary falls back to LookPath, then DefaultCommandBin.
+	if got := ResolveCommandBin("", func() (string, error) { return "/tmp/app.test", nil }, func(string) (string, error) { return "/opt/homebrew/bin/world", nil }); got != "/opt/homebrew/bin/world" {
+		t.Fatalf("expected lookPath fallback, got %q", got)
+	}
+	if got := ResolveCommandBin("", func() (string, error) { return "/tmp/app.test", nil }, nil); got != DefaultCommandBin {
+		t.Fatalf("expected default fallback, got %q", got)
+	}
+
+	// Spaces and .exe paths are quoted and recognized by status/uninstall.
+	cmd := commandForEvent(`C:\Program Files\World\world.exe`, "stop")
+	if cmd != `"C:\Program Files\World\world.exe" hook stop` {
+		t.Fatalf("unexpected quoted command: %q", cmd)
+	}
+	if !isWorldHookCommand(cmd, "stop") {
+		t.Fatalf("expected isWorldHookCommand to recognize %q", cmd)
+	}
+}

@@ -54,7 +54,7 @@ func (a *App) runHookInstall(args []string, defaults commonFlags) int {
 	var target, scope, commandBin string
 	fs.StringVar(&target, "target", hooks.TargetAuto, "target harness: auto, all, antigravity, claude, codex (comma-separated)")
 	fs.StringVar(&scope, "scope", hooks.ScopeUser, "install scope: user or project")
-	fs.StringVar(&commandBin, "command", hooks.DefaultCommandBin, "world binary command to register")
+	fs.StringVar(&commandBin, "command", "", "world binary path or command to register (defaults to absolute path of current world binary)")
 
 	valueFlags := commonValueFlags()
 	valueFlags["target"] = true
@@ -71,10 +71,11 @@ func (a *App) runHookInstall(args []string, defaults commonFlags) int {
 	if err != nil {
 		return a.fail(err)
 	}
+	resolvedBin := hooks.ResolveCommandBin(commandBin, a.execPath, a.lookPath)
 	results, err := hooks.Install(hooks.ManageOptions{
 		Target:     target,
 		Scope:      scope,
-		CommandBin: commandBin,
+		CommandBin: resolvedBin,
 		HomeDir:    home,
 		WorkDir:    work,
 	})
