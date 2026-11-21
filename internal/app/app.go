@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/bootun/world-cli/internal/client"
@@ -30,6 +31,8 @@ type App struct {
 	newClient   func(endpoint, apiKey string) *client.Client
 	openBrowser browserOpener
 	onAuthReady func(authURL, callbackURL, state string)
+	homeDir     func() (string, error)
+	workDir     func() (string, error)
 }
 
 func New(store *config.Store, stdin io.Reader, stdout, stderr io.Writer) *App {
@@ -42,6 +45,8 @@ func New(store *config.Store, stdin io.Reader, stdout, stderr io.Writer) *App {
 			return client.New(endpoint, apiKey)
 		},
 		openBrowser: defaultBrowserOpener,
+		homeDir:     os.UserHomeDir,
+		workDir:     os.Getwd,
 	}
 }
 
@@ -98,6 +103,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return a.runRecall(ctx, subArgs, defaults)
 	case "entity":
 		return a.runEntity(ctx, subArgs, defaults)
+	case "hook":
+		return a.runHook(subArgs, defaults)
 	default:
 		fmt.Fprintf(a.stderr, "unknown command %q\n\n", cmd)
 		a.printRootUsage(a.stderr)
@@ -197,6 +204,7 @@ Commands:
   entity get <id>         Fetch one entity and its components
   auth <subcommand>       Manage login credentials (login, status, logout)
   config <subcommand>     Manage local configuration (list, get, set)
+  hook <subcommand>       Install and manage AI harness lifecycle hooks
   version                 Show CLI version
 
 Global Flags:

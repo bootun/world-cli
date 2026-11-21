@@ -33,6 +33,13 @@
 - `world entity get <entity_id> [--as-of <time>] [--timezone <iana>] [--json]`
   - Response JSON: `{"entity":{...}}`.
 
+### AI Harness lifecycle hooks
+
+- `world hook install [--target auto|all|antigravity|claude|codex] [--scope user|project] [--command <bin>] [--json]` — Register `SessionStart` (recall-first reminder) and `Stop` (end-of-turn memory review) hooks into local AI harness configs without overwriting unrelated settings.
+- `world hook status [--target ...] [--scope user|project] [--json]` — Show hook installation status across supported harnesses.
+- `world hook uninstall [--target ...] [--scope user|project] [--json]` — Remove World Machine hooks cleanly.
+- `world hook session-start` / `world hook stop` — Runtime callback subcommands invoked automatically by the AI harness over stdin/stdout (auto-detects Antigravity vs. Claude Code/Codex JSON dialects).
+
 ## Environment variables
 
 - `WORLD_API_KEY` (or `WM_API_KEY`) — API key override

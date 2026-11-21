@@ -50,7 +50,20 @@ npx -y skills add bootun/world-cli --skill world-machine -y
 cp -r skills/world-machine ~/.agents/skills/world-machine
 ```
 
-安装后，AI 编程助手无需等你显式下令“记住”，即可在日常协作中**主动捕捉**用户长期偏好、架构拍板、职责/拓扑与事实更正并顺手调用 `world remember`，同时**自动过滤**一次性指令、临时报错堆栈与敏感密钥等噪音，并在缺乏背景或需要历史状态时**主动调用 `world recall`**。
+### 3. 安装 AI Harness 生命周期 Hooks（推荐）
+
+安装完 `world` CLI 后，一键为本机已安装的 AI 助手（Antigravity、Claude Code、Codex CLI）注册 `SessionStart` 与 `Stop` Hooks，让 Agent 在**任务开始前主动先查记忆（`world recall`）**、在**回答结束前自动复盘并沉淀重点（`world remember`）**：
+
+```sh
+# 自动检测本机已安装的 AI Harness 并写入 Hooks（幂等合并，不覆盖已有配置）
+world hook install
+
+# 或显式指定目标与作用域
+world hook install --target claude,codex,antigravity
+world hook status
+```
+
+> 若在 Codex CLI 中首次添加 Hooks，按提示在会话内运行 `/hooks` 确认信任即可生效。未登录 `world` 时 Hooks 会自动静默放行，不会打断正常对话。
 
 ---
 
@@ -155,6 +168,22 @@ world config set output json
 # 切换或新建 profile（如区分个人与工作账号）
 world config set profile work
 world auth login
+```
+
+### 5. AI Harness 生命周期 Hooks 管理（`world hook`）
+
+支持为 Antigravity（`~/.gemini/config/hooks.json`）、Claude Code（`~/.claude/settings.json`）、Codex CLI（`~/.codex/hooks.json`）一键安装、检查和卸载 `SessionStart` / `Stop` Hooks：
+
+```sh
+# 自动检测本机已安装的 Harness 并安装 Hooks（支持 --scope user|project）
+world hook install
+
+# 指定单个或多个目标
+world hook install --target antigravity,claude,codex
+
+# 查看安装状态 / 干净卸载
+world hook status
+world hook uninstall
 ```
 
 ---
