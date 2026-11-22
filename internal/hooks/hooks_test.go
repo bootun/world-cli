@@ -241,6 +241,31 @@ func TestHandleStopGuardsAndTriggering(t *testing.T) {
 	if ccResp["decision"] != "block" || !strings.Contains(ccResp["reason"].(string), "world remember") {
 		t.Fatalf("expected decision=block for claude/codex, got %s", string(out))
 	}
+
+	// 8. Transcript that already received a Stop hook review prompt in the current turn passes through
+	// even if continuationActive is false and the turn used other tools without calling world remember.
+	reviewedTranscript := filepath.Join(t.TempDir(), "reviewed.jsonl")
+	sysLine, _ := json.Marshal(map[string]any{
+		"type":    "SYSTEM_MESSAGE",
+		"content": "The following is a <SYSTEM_MESSAGE>...\n\n<SYSTEM_MESSAGE>\nStop hook blocked termination: " + StopReviewPrompt + "\n</SYSTEM_MESSAGE>",
+	})
+	_ = os.WriteFile(reviewedTranscript, []byte(
+		`{"type":"USER_INPUT","content":"我好奇为什么这个不需要机柜会被显示为忌口？"}`+"\n"+
+			`{"type":"PLANNER_RESPONSE","content":"","tool_calls":[{"name":"read_file","args":{"Path":"/app/memories.tsx"}}]}`+"\n"+
+			`{"type":"PLANNER_RESPONSE","content":"因为前端硬编码了 avoid ? 忌口 : 偏好。"}`+"\n"+
+			string(sysLine)+"\n"+
+			`{"type":"PLANNER_RESPONSE","content":"已定位到标签映射逻辑，如需调整文案随时告诉我。"}`+"\n",
+	), 0o644)
+	payload, _ = json.Marshal(map[string]any{
+		"hookEventName":      "Stop",
+		"continuationActive": false,
+		"terminationReason":  "NO_TOOL_CALL",
+		"transcriptPath":     reviewedTranscript,
+	})
+	out, err = HandleStop(payload, DialectAuto, true)
+	if err != nil || strings.TrimSpace(string(out)) != "{}" {
+		t.Fatalf("expected pass-through after Stop hook already fired in current turn, got %s (err=%v)", string(out), err)
+	}
 }
 
 func TestResolveCommandBinAndQuotedPaths(t *testing.T) {

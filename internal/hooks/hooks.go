@@ -686,15 +686,11 @@ func HandleStop(rawStdin []byte, dialectOverride string, authenticated bool) ([]
 		return []byte("{}\n"), nil
 	}
 
+	if boolField(payload, "continuationActive", "continuation_active", "stop_hook_active", "stopHookActive") {
+		return []byte("{}\n"), nil
+	}
 	if dialect == DialectAntigravity {
-		if b, _ := payload["continuationActive"].(bool); b {
-			return []byte("{}\n"), nil
-		}
 		if reason, _ := payload["terminationReason"].(string); reason != "" && reason != "NO_TOOL_CALL" {
-			return []byte("{}\n"), nil
-		}
-	} else {
-		if b, _ := payload["stop_hook_active"].(bool); b {
 			return []byte("{}\n"), nil
 		}
 	}
@@ -740,6 +736,15 @@ func firstString(m map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func boolField(m map[string]any, keys ...string) bool {
+	for _, k := range keys {
+		if b, ok := m[k].(bool); ok && b {
+			return true
+		}
+	}
+	return false
 }
 
 type turnSummary struct {
@@ -852,7 +857,17 @@ func parseTranscriptLine(obj map[string]any) (transcriptEntry, bool) {
 		switch typ {
 		case "USER_INPUT":
 			text, _ := obj["content"].(string)
-			return transcriptEntry{IsUser: true, Text: strings.TrimSpace(text)}, true
+			trimmed := strings.TrimSpace(text)
+			if containsStopReviewPrompt(trimmed) {
+				return transcriptEntry{CalledWorldRemember: true}, true
+			}
+			return transcriptEntry{IsUser: true, Text: trimmed}, true
+		case "SYSTEM_MESSAGE":
+			text, _ := obj["content"].(string)
+			if containsStopReviewPrompt(text) {
+				return transcriptEntry{CalledWorldRemember: true}, true
+			}
+			return transcriptEntry{}, false
 		case "PLANNER_RESPONSE":
 			text, _ := obj["content"].(string)
 			entry := transcriptEntry{Text: strings.TrimSpace(text)}
@@ -884,7 +899,7 @@ func parseTranscriptLine(obj map[string]any) (transcriptEntry, bool) {
 			contentVal = c
 		}
 	}
-	if role != "user" && role != "assistant" {
+	if role != "user" && role != "assistant" && role != "system" {
 		return transcriptEntry{}, false
 	}
 
@@ -918,12 +933,25 @@ func parseTranscriptLine(obj map[string]any) (transcriptEntry, bool) {
 		}
 		entry.Text = strings.Join(parts, "\n")
 	}
+	if (role == "user" || role == "system") && containsStopReviewPrompt(entry.Text) {
+		entry.IsUser = false
+		entry.CalledWorldRemember = true
+		entry.Text = ""
+	}
 	return entry, true
 }
 
 func containsWorldRemember(s string) bool {
 	lower := strings.ToLower(s)
-	return strings.Contains(lower, "world remember") || strings.Contains(lower, "world\" remember")
+	return strings.Contains(lower, "world remember") ||
+		strings.Contains(lower, "world\" remember") ||
+		strings.Contains(lower, "world.exe remember") ||
+		strings.Contains(lower, "world.exe\" remember")
+}
+
+func containsStopReviewPrompt(s string) bool {
+	return strings.Contains(s, "Before finishing this turn, briefly review what happened in this turn:") ||
+		strings.Contains(s, "Stop hook blocked termination:")
 }
 
 var trivialPhrases = map[string]bool{
