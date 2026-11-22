@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+
+	"github.com/bootun/world-cli/internal/version"
 )
 
 func TestWriteMemoryRetriesWithSameIdempotencyKeyAndStringInt64(t *testing.T) {
@@ -166,5 +168,102 @@ func TestRetractAndSupersedeMemory(t *testing.T) {
 	}
 	if sRes.OldEventID != "evt_bad" || sRes.NewEventID != "evt_good" || supersedeKey != "sup-1" || seenSupersedeBody["text"] != "我的工作地点在上海" {
 		t.Fatalf("unexpected supersede result: %+v body=%v", sRes, seenSupersedeBody)
+	}
+}
+
+func TestAllRequestsIncludeCLIVersionHeaders(t *testing.T) {
+	var seen []struct {
+		path    string
+		ua      string
+		version string
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, struct {
+			path    string
+			ua      string
+			version string
+		}{
+			path:    r.URL.Path,
+			ua:      r.Header.Get("User-Agent"),
+			version: r.Header.Get(HeaderCLIVersion),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/healthz":
+			_, _ = w.Write([]byte(`{"ok":true}`))
+		case "/v1/memories":
+			_, _ = w.Write([]byte(`{"eventId":"evt_1","deduplicated":false}`))
+		case "/v1/memories:recall":
+			_, _ = w.Write([]byte(`{"entities":[],"memories":[]}`))
+		case "/v1/entities/ent_1":
+			_, _ = w.Write([]byte(`{"entity":{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}}`))
+		case "/v1/entities/__world_cli_auth_probe__":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"missing"}}`))
+		case "/v1/memories/evt_1:retract":
+			_, _ = w.Write([]byte(`{"eventId":"evt_1","status":"retracted","deduplicated":false}`))
+		case "/v1/memories/evt_1:supersede":
+			_, _ = w.Write([]byte(`{"oldEventId":"evt_1","newEventId":"evt_2","deduplicated":false}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "wm_k_test")
+	ctx := context.Background()
+	if err := c.Health(ctx); err != nil {
+		t.Fatalf("Health: %v", err)
+	}
+	if err := c.VerifyAuth(ctx); err != nil {
+		t.Fatalf("VerifyAuth: %v", err)
+	}
+	if _, err := c.WriteMemory(ctx, WriteMemoryRequest{Text: "hello"}); err != nil {
+		t.Fatalf("WriteMemory: %v", err)
+	}
+	if _, err := c.Recall(ctx, RecallRequest{Query: "hello"}); err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
+	if _, err := c.GetEntity(ctx, "ent_1", 0); err != nil {
+		t.Fatalf("GetEntity: %v", err)
+	}
+	if _, err := c.RetractMemory(ctx, RetractMemoryRequest{EventID: "evt_1"}); err != nil {
+		t.Fatalf("RetractMemory: %v", err)
+	}
+	if _, err := c.SupersedeMemory(ctx, SupersedeMemoryRequest{EventID: "evt_1", Text: "fixed"}); err != nil {
+		t.Fatalf("SupersedeMemory: %v", err)
+	}
+
+	if len(seen) != 7 {
+		t.Fatalf("expected 7 requests, got %d", len(seen))
+	}
+	wantUA := "world-cli/" + version.Version
+	for _, req := range seen {
+		if req.version != version.Version {
+			t.Errorf("%s: %s = %q, want %q", req.path, HeaderCLIVersion, req.version, version.Version)
+		}
+		if req.ua != wantUA {
+			t.Errorf("%s: User-Agent = %q, want %q", req.path, req.ua, wantUA)
+		}
+	}
+
+	// Verify explicit WithCLIVersion and WithUserAgent override behavior.
+	seen = nil
+	custom := New(srv.URL, "wm_k_test", WithCLIVersion("1.2.3"))
+	if err := custom.Health(ctx); err != nil {
+		t.Fatalf("custom Health: %v", err)
+	}
+	if len(seen) != 1 || seen[0].version != "1.2.3" || seen[0].ua != "world-cli/1.2.3" {
+		t.Fatalf("unexpected custom version headers: %+v", seen)
+	}
+
+	seen = nil
+	customUA := New(srv.URL, "wm_k_test", WithUserAgent("my-agent/9.9"), WithCLIVersion("1.2.3"))
+	if err := customUA.Health(ctx); err != nil {
+		t.Fatalf("customUA Health: %v", err)
+	}
+	if len(seen) != 1 || seen[0].version != "1.2.3" || seen[0].ua != "my-agent/9.9" {
+		t.Fatalf("unexpected custom UA headers: %+v", seen)
 	}
 }

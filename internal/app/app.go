@@ -12,9 +12,8 @@ import (
 
 	"github.com/bootun/world-cli/internal/client"
 	"github.com/bootun/world-cli/internal/config"
+	"github.com/bootun/world-cli/internal/version"
 )
-
-const Version = "0.1.0"
 
 const (
 	exitOK       = 0
@@ -45,7 +44,7 @@ func New(store *config.Store, stdin io.Reader, stdout, stderr io.Writer) *App {
 		stdout: stdout,
 		stderr: stderr,
 		newClient: func(endpoint, apiKey string) *client.Client {
-			return client.New(endpoint, apiKey)
+			return client.New(endpoint, apiKey, client.WithCLIVersion(version.Version))
 		},
 		openBrowser: defaultBrowserOpener,
 		homeDir:     os.UserHomeDir,
@@ -90,9 +89,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			}
 		}
 		if jsonOut {
-			_ = writeJSON(a.stdout, map[string]string{"version": Version})
+			_ = writeJSON(a.stdout, map[string]string{"version": version.Version})
 		} else {
-			fmt.Fprintf(a.stdout, "world %s\n", Version)
+			fmt.Fprintf(a.stdout, "world %s\n", version.Version)
 		}
 		return exitOK
 	case "help":

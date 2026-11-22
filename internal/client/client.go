@@ -13,7 +13,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bootun/world-cli/internal/version"
 )
+
+const HeaderCLIVersion = "X-World-CLI-Version"
 
 // Int64 encodes 64-bit integers as decimal strings in JSON and accepts either
 // JSON strings or numbers when decoding.
@@ -154,10 +158,12 @@ type RecallResponse struct {
 }
 
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
-	userAgent  string
+	baseURL         string
+	apiKey          string
+	httpClient      *http.Client
+	cliVersion      string
+	userAgent       string
+	customUserAgent bool
 }
 
 type Option func(*Client)
@@ -172,20 +178,42 @@ func WithHTTPClient(hc *http.Client) Option {
 
 func WithUserAgent(ua string) Option {
 	return func(c *Client) {
-		if ua != "" {
+		if ua := strings.TrimSpace(ua); ua != "" {
 			c.userAgent = ua
+			c.customUserAgent = true
 		}
 	}
 }
 
+func WithCLIVersion(v string) Option {
+	return func(c *Client) {
+		if v := strings.TrimSpace(v); v != "" {
+			c.cliVersion = v
+			if !c.customUserAgent {
+				c.userAgent = formatUserAgent(v)
+			}
+		}
+	}
+}
+
+func formatUserAgent(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "world-cli"
+	}
+	return "world-cli/" + v
+}
+
 func New(baseURL, apiKey string, opts ...Option) *Client {
+	ver := strings.TrimSpace(version.Version)
 	c := &Client{
 		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 		apiKey:  strings.TrimSpace(apiKey),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		userAgent: "world-cli/0.1",
+		cliVersion: ver,
+		userAgent:  formatUserAgent(ver),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -328,7 +356,7 @@ func (c *Client) Health(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", c.userAgent)
+	c.applyDefaultHeaders(req)
 	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -355,6 +383,15 @@ func (c *Client) VerifyAuth(ctx context.Context) error {
 	return err
 }
 
+func (c *Client) applyDefaultHeaders(req *http.Request) {
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.cliVersion != "" {
+		req.Header.Set(HeaderCLIVersion, c.cliVersion)
+	}
+}
+
 func (c *Client) doJSON(ctx context.Context, method, path string, body []byte, extraHeaders map[string]string, target any) error {
 	var bodyReader io.Reader
 	if body != nil {
@@ -364,7 +401,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body []byte, e
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", c.userAgent)
+	c.applyDefaultHeaders(req)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

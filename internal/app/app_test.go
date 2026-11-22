@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bootun/world-cli/internal/client"
 	"github.com/bootun/world-cli/internal/config"
+	"github.com/bootun/world-cli/internal/version"
 )
 
 func newTestApp(t *testing.T, stdin string) (*App, *bytes.Buffer, *bytes.Buffer, *config.Store) {
@@ -27,6 +29,12 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 	var seenIdemKey string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get(client.HeaderCLIVersion); got != version.Version {
+			t.Errorf("%s: %s = %q, want %q", r.URL.Path, client.HeaderCLIVersion, got, version.Version)
+		}
+		if got, want := r.Header.Get("User-Agent"), "world-cli/"+version.Version; got != want {
+			t.Errorf("%s: User-Agent = %q, want %q", r.URL.Path, got, want)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/healthz":
