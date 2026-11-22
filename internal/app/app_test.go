@@ -50,6 +50,10 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 			_, _ = w.Write([]byte(`{"entities":[{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}],"memories":[{"eventId":"evt_001","occurredAtMs":"1731920000000","summary":"Project Atlas"}]}`))
 		case "/v1/entities/ent_1":
 			_, _ = w.Write([]byte(`{"entity":{"entityId":"ent_1","canonicalName":"Atlas","entityType":"Project"}}`))
+		case "/v1/memories/evt_001:retract":
+			_, _ = w.Write([]byte(`{"eventId":"evt_001","status":"retracted","deduplicated":false}`))
+		case "/v1/memories/evt_001:supersede":
+			_, _ = w.Write([]byte(`{"oldEventId":"evt_001","newEventId":"evt_002","deduplicated":false}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -94,7 +98,7 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 	if seenRemember["timezone"] != "Asia/Shanghai" || seenRemember["source"] != "cli-test" {
 		t.Fatalf("unexpected remember payload: %#v", seenRemember)
 	}
-	if strings.Contains(out.String(), "eventId") || !strings.Contains(out.String(), `"deduplicated": false`) {
+	if !strings.Contains(out.String(), `"eventId": "evt_001"`) || !strings.Contains(out.String(), `"deduplicated": false`) {
 		t.Fatalf("unexpected remember output: %s", out.String())
 	}
 
@@ -103,7 +107,7 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("recall failed (%d): %s", code, errBuf.String())
 	}
-	if !strings.Contains(out.String(), `"canonicalName": "Atlas"`) || strings.Contains(out.String(), "eventId") {
+	if !strings.Contains(out.String(), `"canonicalName": "Atlas"`) || !strings.Contains(out.String(), `"eventId": "evt_001"`) {
 		t.Fatalf("unexpected recall output: %s", out.String())
 	}
 
@@ -114,6 +118,24 @@ func TestRememberRecallAndEntityFlow(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"entityId": "ent_1"`) {
 		t.Fatalf("unexpected entity output: %s", out.String())
+	}
+
+	out.Reset()
+	code = a.Run(context.Background(), []string{"forget", "evt_001", "--reason", "test", "--redact", "--json"})
+	if code != exitOK {
+		t.Fatalf("forget failed (%d): %s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), `"status": "retracted"`) {
+		t.Fatalf("unexpected forget output: %s", out.String())
+	}
+
+	out.Reset()
+	code = a.Run(context.Background(), []string{"fix", "evt_001", "Project codename is Helios", "--json"})
+	if code != exitOK {
+		t.Fatalf("fix failed (%d): %s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), `"newEventId": "evt_002"`) {
+		t.Fatalf("unexpected fix output: %s", out.String())
 	}
 }
 
@@ -145,8 +167,8 @@ func TestRememberFromStdinAndConfigSetGet(t *testing.T) {
 	if seenText != "Piped memory content" {
 		t.Fatalf("seenText = %q, want Piped memory content", seenText)
 	}
-	if strings.TrimSpace(out.String()) != "Recorded memory" {
-		t.Fatalf("expected 'Recorded memory' in stdout, got %q", out.String())
+	if strings.TrimSpace(out.String()) != "Recorded memory (evt_stdin)" {
+		t.Fatalf("expected 'Recorded memory (evt_stdin)' in stdout, got %q", out.String())
 	}
 }
 

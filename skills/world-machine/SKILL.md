@@ -82,6 +82,20 @@ Do **not** call `world remember` for:
 - **Historical backfill (`--occurred-at`)**: Pass `--occurred-at` (RFC3339 or `YYYY-MM-DD`) only when backfilling a past event with an explicit date not already clear from the statement text. Never pass a future `--occurred-at` (>24h ahead); express future plans in the statement text itself.
 - **Keep searchable content in the text**: `--meta key=value` is archived on the raw memory only and is **not** indexed or returned by `world recall`. Put all important entity names and context directly in the statement text.
 
+#### Correcting or retracting mistaken memories (`world forget` / `world fix`)
+
+Distinguish **real-world changes** from **mistaken records** (AI hallucinations, test data, typos):
+- **Real-world state changed** (e.g., user moved from Beijing to Shanghai): call `world remember` so the old interval stays valid as real history.
+- **Entire memory was wrong / test noise**: locate its `eventId` from `world recall --json` and run:
+  ```sh
+  world forget <event_id> --reason "mistaken record" --json
+  ```
+  Pass `--redact` only when the user asks to irreversibly scrub the original text.
+- **Memory was partially wrong** (e.g., half true, half mistaken): replace it at its original timestamp so both structured state and raw evidence stay consistent:
+  ```sh
+  world fix <event_id> "<corrected self-contained statement>" --json
+  ```
+
 ## Security & privacy guardrails
 
 - **Never** read, print, or copy `~/.config/world/config.json` or `WORLD_API_KEY` into chat output, logs, or source files.

@@ -92,6 +92,9 @@ func printRecall(w io.Writer, res client.RecallResponse, tz string) {
 		fmt.Fprintf(w, "Memories (%d):\n", len(res.Memories))
 		for _, m := range res.Memories {
 			fmt.Fprintf(w, "  - [%s] %s", formatMs(int64(m.OccurredAtMs), tz), m.Summary)
+			if m.EventID != "" {
+				fmt.Fprintf(w, " (id: %s)", m.EventID)
+			}
 			if len(m.AffectedEntityIds) > 0 {
 				fmt.Fprintf(w, " [entities: %s]", strings.Join(m.AffectedEntityIds, ", "))
 			}

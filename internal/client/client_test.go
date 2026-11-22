@@ -49,7 +49,7 @@ func TestWriteMemoryRetriesWithSameIdempotencyKeyAndStringInt64(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WriteMemory: %v", err)
 	}
-	if res.Deduplicated {
+	if res.EventID != "evt_123" || res.Deduplicated {
 		t.Fatalf("unexpected response: %+v", res)
 	}
 	if calls.Load() != 2 || seenKeys[0] != "idem-abc" || seenKeys[1] != "idem-abc" {
@@ -112,5 +112,59 @@ func TestRecallAndGetEntityAndVerifyAuth(t *testing.T) {
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) || apiErr.Code != "unauthenticated" {
 		t.Fatalf("expected unauthenticated error, got %v", err)
+	}
+}
+
+func TestRetractAndSupersedeMemory(t *testing.T) {
+	var seenRetractBody map[string]any
+	var seenSupersedeBody map[string]any
+	var retractKey, supersedeKey string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/memories/evt_bad:retract":
+			retractKey = r.Header.Get("Idempotency-Key")
+			_ = json.NewDecoder(r.Body).Decode(&seenRetractBody)
+			_, _ = w.Write([]byte(`{"eventId":"evt_bad","status":"retracted","deduplicated":false}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/memories/evt_bad:supersede":
+			supersedeKey = r.Header.Get("Idempotency-Key")
+			_ = json.NewDecoder(r.Body).Decode(&seenSupersedeBody)
+			_, _ = w.Write([]byte(`{"oldEventId":"evt_bad","newEventId":"evt_good","deduplicated":false}`))
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "wm_k_test")
+	rRes, err := c.RetractMemory(context.Background(), RetractMemoryRequest{
+		EventID:        "evt_bad",
+		Reason:         "test noise",
+		RedactText:     true,
+		IdempotencyKey: "ret-1",
+	})
+	if err != nil {
+		t.Fatalf("RetractMemory: %v", err)
+	}
+	if rRes.EventID != "evt_bad" || rRes.Status != "retracted" || retractKey != "ret-1" || seenRetractBody["redactText"] != true {
+		t.Fatalf("unexpected retract result: %+v body=%v", rRes, seenRetractBody)
+	}
+
+	occ := Int64(1731920000000)
+	sRes, err := c.SupersedeMemory(context.Background(), SupersedeMemoryRequest{
+		EventID:        "evt_bad",
+		Text:           "我的工作地点在上海",
+		OccurredAtMs:   &occ,
+		Timezone:       "Asia/Shanghai",
+		Reason:         "fix city",
+		RedactOldText:  true,
+		IdempotencyKey: "sup-1",
+	})
+	if err != nil {
+		t.Fatalf("SupersedeMemory: %v", err)
+	}
+	if sRes.OldEventID != "evt_bad" || sRes.NewEventID != "evt_good" || supersedeKey != "sup-1" || seenSupersedeBody["text"] != "我的工作地点在上海" {
+		t.Fatalf("unexpected supersede result: %+v body=%v", sRes, seenSupersedeBody)
 	}
 }

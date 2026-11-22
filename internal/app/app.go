@@ -106,6 +106,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return a.runRemember(ctx, subArgs, defaults)
 	case "recall":
 		return a.runRecall(ctx, subArgs, defaults)
+	case "forget", "retract":
+		return a.runForget(ctx, subArgs, defaults)
+	case "fix", "supersede":
+		return a.runFix(ctx, subArgs, defaults)
 	case "entity":
 		return a.runEntity(ctx, subArgs, defaults)
 	case "hook":
@@ -206,6 +210,8 @@ Usage:
 Commands:
   remember "<text>"       Record a memory into World Machine
   recall "<query>"        Recall entities and memories
+  forget <event_id>       Retract a mistaken memory and roll back its derived state
+  fix <event_id> "<text>" Replace a mistaken memory with corrected text
   entity get <id>         Fetch one entity and its components
   auth <subcommand>       Manage login credentials (login, status, logout)
   config <subcommand>     Manage local configuration (list, get, set)
@@ -224,6 +230,8 @@ Examples:
   world remember "Alice moved to Tokyo yesterday." --source notes
   world recall "Where does Alice live?" --json
   world recall "Where did Alice live?" --as-of "2026-01-01" --json
+  world forget <event_id> --reason "test data"
+  world fix <event_id> "My workplace is Shanghai." --json
 `)
 }
 

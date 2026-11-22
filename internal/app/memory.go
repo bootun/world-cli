@@ -109,6 +109,170 @@ func (a *App) runRemember(ctx context.Context, args []string, defaults commonFla
 		return exitOK
 	}
 	fmt.Fprint(a.stdout, "Recorded memory")
+	if out.EventID != "" {
+		fmt.Fprintf(a.stdout, " (%s)", out.EventID)
+	}
+	if out.Deduplicated {
+		fmt.Fprint(a.stdout, " (deduplicated)")
+	}
+	fmt.Fprintln(a.stdout)
+	return exitOK
+}
+
+func (a *App) runForget(ctx context.Context, args []string, defaults commonFlags) int {
+	var common commonFlags
+	var reason string
+	var redact bool
+	var idempotencyKey string
+
+	fs := newFlagSet("world forget", a.stderr)
+	registerCommonFlags(fs, &common, defaults)
+	fs.StringVar(&reason, "reason", "", "optional reason for retracting this memory")
+	fs.BoolVar(&redact, "redact", false, "irreversibly scrub the original stored text")
+	fs.StringVar(&idempotencyKey, "idempotency-key", "", "explicit Idempotency-Key header")
+
+	vflags := commonValueFlags()
+	vflags["reason"] = true
+	vflags["idempotency-key"] = true
+
+	if err := fs.Parse(reorderArgs(args, vflags)); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return exitOK
+		}
+		return exitUsage
+	}
+	pos := fs.Args()
+	if len(pos) != 1 || strings.TrimSpace(pos[0]) == "" {
+		return a.usageFail(errors.New("usage: world forget <event_id> [--reason \"...\"] [--redact] [--json]"))
+	}
+	eventID := strings.TrimSpace(pos[0])
+
+	res, err := a.store.Resolve(common.profile, common.endpoint, common.apiKey)
+	if err != nil {
+		return a.fail(err)
+	}
+	if res.APIKey == "" {
+		return a.unauthFail()
+	}
+	if idempotencyKey == "" {
+		idempotencyKey = newUUIDv4()
+	}
+
+	c := a.newClient(res.Endpoint, res.APIKey)
+	out, err := c.RetractMemory(ctx, client.RetractMemoryRequest{
+		EventID:        eventID,
+		Reason:         strings.TrimSpace(reason),
+		RedactText:     redact,
+		IdempotencyKey: idempotencyKey,
+	})
+	if err != nil {
+		return a.fail(err)
+	}
+
+	if common.jsonOut || res.Output == "json" {
+		_ = writeJSON(a.stdout, out)
+		return exitOK
+	}
+	fmt.Fprintf(a.stdout, "Retracted memory (%s)", out.EventID)
+	if out.Deduplicated {
+		fmt.Fprint(a.stdout, " (deduplicated)")
+	}
+	fmt.Fprintln(a.stdout)
+	return exitOK
+}
+
+func (a *App) runFix(ctx context.Context, args []string, defaults commonFlags) int {
+	var common commonFlags
+	var tzFlag string
+	var occurredAt string
+	var reason string
+	var redact bool
+	var idempotencyKey string
+
+	fs := newFlagSet("world fix", a.stderr)
+	registerCommonFlags(fs, &common, defaults)
+	fs.StringVar(&occurredAt, "occurred-at", "", "optional replacement occurrence time (defaults to original timestamp)")
+	fs.StringVar(&tzFlag, "timezone", "", "optional replacement IANA timezone (defaults to original timezone)")
+	fs.StringVar(&reason, "reason", "", "optional reason for correcting this memory")
+	fs.BoolVar(&redact, "redact", false, "irreversibly scrub the original stored text")
+	fs.StringVar(&idempotencyKey, "idempotency-key", "", "explicit Idempotency-Key header")
+
+	vflags := commonValueFlags()
+	vflags["occurred-at"] = true
+	vflags["timezone"] = true
+	vflags["reason"] = true
+	vflags["idempotency-key"] = true
+
+	if err := fs.Parse(reorderArgs(args, vflags)); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return exitOK
+		}
+		return exitUsage
+	}
+	pos := fs.Args()
+	if len(pos) == 0 || strings.TrimSpace(pos[0]) == "" {
+		return a.usageFail(errors.New("usage: world fix <event_id> \"<corrected text>\" [flags]"))
+	}
+	eventID := strings.TrimSpace(pos[0])
+	text, err := a.readTextArgOrStdin(pos[1:])
+	if err != nil {
+		return a.usageFail(errors.New("usage: world fix <event_id> \"<corrected text>\" [flags] (or pipe text via stdin)"))
+	}
+
+	res, err := a.store.Resolve(common.profile, common.endpoint, common.apiKey)
+	if err != nil {
+		return a.fail(err)
+	}
+	if res.APIKey == "" {
+		return a.unauthFail()
+	}
+
+	var tz string
+	if strings.TrimSpace(tzFlag) != "" {
+		tz, err = ResolveTimezone(tzFlag, res.Timezone)
+		if err != nil {
+			return a.usageFail(err)
+		}
+	}
+	var occurredPtr *client.Int64
+	if strings.TrimSpace(occurredAt) != "" {
+		parseTZ := tz
+		if parseTZ == "" {
+			parseTZ, err = ResolveTimezone("", res.Timezone)
+			if err != nil {
+				return a.usageFail(err)
+			}
+		}
+		ms, err := ParseTimeMs(occurredAt, parseTZ)
+		if err != nil {
+			return a.usageFail(err)
+		}
+		v := client.Int64(ms)
+		occurredPtr = &v
+	}
+	if idempotencyKey == "" {
+		idempotencyKey = newUUIDv4()
+	}
+
+	c := a.newClient(res.Endpoint, res.APIKey)
+	out, err := c.SupersedeMemory(ctx, client.SupersedeMemoryRequest{
+		EventID:        eventID,
+		Text:           text,
+		OccurredAtMs:   occurredPtr,
+		Timezone:       tz,
+		Reason:         strings.TrimSpace(reason),
+		RedactOldText:  redact,
+		IdempotencyKey: idempotencyKey,
+	})
+	if err != nil {
+		return a.fail(err)
+	}
+
+	if common.jsonOut || res.Output == "json" {
+		_ = writeJSON(a.stdout, out)
+		return exitOK
+	}
+	fmt.Fprintf(a.stdout, "Superseded memory %s -> %s", out.OldEventID, out.NewEventID)
 	if out.Deduplicated {
 		fmt.Fprint(a.stdout, " (deduplicated)")
 	}

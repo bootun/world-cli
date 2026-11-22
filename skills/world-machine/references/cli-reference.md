@@ -26,10 +26,16 @@
 - `world remember "<text>" [--source <label>] [--timezone <iana>] [--occurred-at <time>] [--meta k=v] [--idempotency-key <key>] [--json]`
   - Pass `-` or pipe stdin to write multi-line text.
   - `--meta k=v` is stored on the raw memory archive only and is not indexed or returned by `recall`.
-  - Response JSON: `{"deduplicated":false}`.
+  - Response JSON: `{"eventId":"...","deduplicated":false}`.
 - `world recall "<query>" [--as-of <time>] [--max-entities <n>] [--max-events <n>] [--timezone <iana>] [--json]`
   - `--as-of` accepts RFC3339, `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, or Unix ms/s.
-  - Response JSON: `{"entities":[...],"memories":[...]}`.
+  - Response JSON: `{"entities":[...],"memories":[{"eventId":"...",...}]}`.
+- `world forget <event_id> [--reason "<text>"] [--redact] [--idempotency-key <key>] [--json]`
+  - Retracts a mistakenly recorded memory, hides it from recall/history, and rolls back its derived state. Pass `--redact` to irreversibly scrub stored text.
+  - Response JSON: `{"eventId":"...","status":"retracted","deduplicated":false}`.
+- `world fix <event_id> "<corrected text>" [--occurred-at <time>] [--timezone <iana>] [--reason "<text>"] [--redact] [--idempotency-key <key>] [--json]`
+  - Retracts the old memory and replaces it with corrected text at its original timestamp so state and raw evidence stay consistent.
+  - Response JSON: `{"oldEventId":"...","newEventId":"...","deduplicated":false}`.
 - `world entity get <entity_id> [--as-of <time>] [--timezone <iana>] [--json]`
   - Response JSON: `{"entity":{...}}`.
 

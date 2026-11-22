@@ -79,7 +79,37 @@ type WriteMemoryRequest struct {
 }
 
 type WriteMemoryResponse struct {
-	Deduplicated bool `json:"deduplicated"`
+	EventID      string `json:"eventId,omitempty"`
+	Deduplicated bool   `json:"deduplicated"`
+}
+
+type RetractMemoryRequest struct {
+	EventID        string `json:"-"`
+	Reason         string `json:"reason,omitempty"`
+	RedactText     bool   `json:"redactText,omitempty"`
+	IdempotencyKey string `json:"-"`
+}
+
+type RetractMemoryResponse struct {
+	EventID      string `json:"eventId"`
+	Status       string `json:"status"`
+	Deduplicated bool   `json:"deduplicated"`
+}
+
+type SupersedeMemoryRequest struct {
+	EventID        string `json:"-"`
+	Text           string `json:"text"`
+	OccurredAtMs   *Int64 `json:"occurredAtMs,omitempty"`
+	Timezone       string `json:"timezone,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+	RedactOldText  bool   `json:"redactOldText,omitempty"`
+	IdempotencyKey string `json:"-"`
+}
+
+type SupersedeMemoryResponse struct {
+	OldEventID   string `json:"oldEventId"`
+	NewEventID   string `json:"newEventId"`
+	Deduplicated bool   `json:"deduplicated"`
 }
 
 type ComponentView struct {
@@ -112,6 +142,7 @@ type RecallRequest struct {
 }
 
 type MemoryView struct {
+	EventID           string   `json:"eventId,omitempty"`
 	OccurredAtMs      Int64    `json:"occurredAtMs"`
 	Summary           string   `json:"summary"`
 	AffectedEntityIds []string `json:"affectedEntityIds,omitempty"`
@@ -226,6 +257,70 @@ func (c *Client) GetEntity(ctx context.Context, entityID string, asOfValidTimeMs
 	var out GetEntityResponse
 	err := c.doJSON(ctx, http.MethodGet, path, nil, nil, &out)
 	return out, err
+}
+
+func (c *Client) RetractMemory(ctx context.Context, req RetractMemoryRequest) (RetractMemoryResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return RetractMemoryResponse{}, err
+	}
+	headers := map[string]string{}
+	if req.IdempotencyKey != "" {
+		headers["Idempotency-Key"] = req.IdempotencyKey
+	}
+	path := "/v1/memories/" + url.PathEscape(req.EventID) + ":retract"
+
+	var out RetractMemoryResponse
+	const maxAttempts = 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err = c.doJSON(ctx, http.MethodPost, path, body, headers, &out)
+		if err == nil {
+			return out, nil
+		}
+		if attempt == maxAttempts-1 || !isRetryable(err) {
+			return RetractMemoryResponse{}, err
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * 200 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return RetractMemoryResponse{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return RetractMemoryResponse{}, err
+}
+
+func (c *Client) SupersedeMemory(ctx context.Context, req SupersedeMemoryRequest) (SupersedeMemoryResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return SupersedeMemoryResponse{}, err
+	}
+	headers := map[string]string{}
+	if req.IdempotencyKey != "" {
+		headers["Idempotency-Key"] = req.IdempotencyKey
+	}
+	path := "/v1/memories/" + url.PathEscape(req.EventID) + ":supersede"
+
+	var out SupersedeMemoryResponse
+	const maxAttempts = 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err = c.doJSON(ctx, http.MethodPost, path, body, headers, &out)
+		if err == nil {
+			return out, nil
+		}
+		if attempt == maxAttempts-1 || !isRetryable(err) {
+			return SupersedeMemoryResponse{}, err
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * 200 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return SupersedeMemoryResponse{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return SupersedeMemoryResponse{}, err
 }
 
 func (c *Client) Health(ctx context.Context) error {

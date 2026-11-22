@@ -117,7 +117,7 @@ cat meeting-note.txt | world remember - --source meeting --json
 | `--occurred-at <time>` | 实际发生时间（支持 `YYYY-MM-DD`、`YYYY-MM-DD HH:MM:SS`、RFC3339 或 Unix 时间戳） |
 | `--meta k=v` | 附加键值元信息留档（可多次传入） |
 | `--idempotency-key <key>` | 显式指定幂等键；省略时每次命令调用自动生成并在网络重试时复用 |
-| `--json` | 输出 JSON：`{"deduplicated":false}` |
+| `--json` | 输出 JSON：`{"eventId":"...","deduplicated":false}` |
 
 ### 2. 自然语言召回（`world recall`）
 
@@ -142,7 +142,20 @@ world recall "Atlas 项目进展" --max-entities 5 --max-events 10 --json
 | `--timezone <iana>` | 指定时间展示与 `--as-of` 纯日期解析所用的 IANA 时区 |
 | `--json` | 输出完整结构化 JSON（推荐在 AI Agent 与自动化脚本中始终开启） |
 
-### 3. 查看单个实体（`world entity get`）
+### 3. 作废与改写错误记忆（`world forget` / `world fix`）
+
+用于撤回测试脏数据、AI 误写或半真半假的原话，使之从 AI 召回、历史快照和派生状态中清除：
+
+```sh
+# 作废整条错误记忆（回滚派生状态并从召回池移除；加 --redact 同时不可逆抹除原文）
+world forget <event_id> --reason "测试数据" --json
+world forget <event_id> --redact --json
+
+# 改写原话（先作废旧记忆并回滚，再沿用原发生时间以更正后的文本重新提取）
+world fix <event_id> "我不爱吃香菜，我的工作地点在上海。" --json
+```
+
+### 4. 查看单个实体（`world entity get`）
 
 从召回结果获得 `entityId` 后，精确查看该实体的全部属性或历史某时刻的快照：
 
